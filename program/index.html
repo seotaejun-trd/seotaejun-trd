@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>알고리즘 기반 전략 운용 체험 | 서태준의 매매일지</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f5f6f8; --white: #ffffff; --sidebar-bg: #1a2236;
+      --sidebar-active: #2563eb; --sidebar-text: #94a3b8;
+      --border: #e2e6ea; --text: #1e293b; --muted: #64748b;
+      --accent: #2563eb; --accent-dim: #eff6ff; --accent-border: #bfdbfe;
+      --green: #16a34a; --green-dim: #f0fdf4;
+      --gold: #b45309; --red: #dc2626;
+    }
+    body {
+      font-family: 'Noto Sans KR', -apple-system, sans-serif;
+      background: var(--bg); color: var(--text);
+      line-height: 1.7; font-size: 14px;
+      display: flex; min-height: 100vh;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 220px; min-width: 220px; background: var(--sidebar-bg);
+      display: flex; flex-direction: column;
+      position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; overflow-y: auto;
+    }
+    .sidebar-logo { padding: 24px 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .sidebar-logo-title { font-size: 13px; font-weight: 800; color: #fff; line-height: 1.4; }
+    .sidebar-logo-sub { font-size: 11px; color: var(--sidebar-text); margin-top: 2px; }
+    .sidebar-section-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+      color: #475569; text-transform: uppercase; padding: 20px 20px 8px;
+    }
+    .sidebar-nav { padding: 0 10px; flex: 1; }
+    .sidebar-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 8px; cursor: pointer;
+      margin-bottom: 2px; text-decoration: none; transition: background 0.15s;
+    }
+    .sidebar-item:hover { background: rgba(255,255,255,0.06); }
+    .sidebar-item.active { background: var(--sidebar-active); }
+    .sidebar-num { font-size: 10px; font-weight: 700; color: #475569; width: 18px; flex-shrink: 0; }
+    .sidebar-item.active .sidebar-num { color: rgba(255,255,255,0.6); }
+    .sidebar-item-text { font-size: 12px; color: var(--sidebar-text); font-weight: 500; line-height: 1.4; }
+    .sidebar-item.active .sidebar-item-text { color: #fff; font-weight: 700; }
+    .sidebar-bottom { padding: 16px 12px; border-top: 1px solid rgba(255,255,255,0.07); }
+    .sidebar-help { font-size: 11px; color: #475569; margin-bottom: 10px; line-height: 1.6; padding: 0 8px; }
+    .sidebar-help strong { color: #94a3b8; display: block; margin-bottom: 4px; }
+    .sidebar-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      background: var(--sidebar-active); color: #fff; font-size: 11px; font-weight: 700;
+      padding: 9px 12px; border-radius: 8px; text-decoration: none;
+      margin-bottom: 8px; text-align: center;
+    }
+    .sidebar-btn-ghost {
+      display: flex; align-items: center; justify-content: center;
+      background: transparent; color: var(--sidebar-text); font-size: 11px;
+      padding: 8px 12px; border-radius: 8px; text-decoration: none;
+      border: 1px solid rgba(255,255,255,0.1); text-align: center;
+    }
+
+    /* MAIN */
+    .main-wrap { margin-left: 220px; flex: 1; display: flex; flex-direction: column; }
+
+    /* TOP BAR */
+    .top-bar {
+      background: var(--white); border-bottom: 1px solid var(--border);
+      padding: 0 32px; height: 52px; display: flex; align-items: center;
+      justify-content: space-between; position: sticky; top: 0; z-index: 50;
+    }
+    .top-bar-breadcrumb { font-size: 12px; color: var(--muted); }
+    .top-bar-breadcrumb strong { color: var(--text); }
+    .progress-wrap { display: flex; align-items: center; gap: 10px; }
+    .progress-label { font-size: 11px; color: var(--muted); }
+    .progress-bar-track { width: 120px; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; width: 0%; transition: width 0.3s; }
+
+    /* CONTENT */
+    .content-area { display: flex; flex: 1; }
+    .content-main { flex: 1; padding: 40px 40px 80px; max-width: 820px; }
+
+    /* TOC */
+    .toc-sidebar {
+      width: 240px; min-width: 240px; padding: 32px 20px;
+      position: sticky; top: 52px; height: calc(100vh - 52px); overflow-y: auto;
+    }
+    .toc-card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+    .toc-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+    .toc-link {
+      display: block; font-size: 12px; color: var(--muted); text-decoration: none;
+      padding: 5px 0 5px 10px; border-left: 2px solid transparent;
+      margin-left: -2px; transition: all 0.15s; line-height: 1.5;
+    }
+    .toc-link:hover, .toc-link.active { color: var(--accent); border-left-color: var(--accent); }
+    .progress-card-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px; }
+    .progress-circle-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .progress-pct { font-size: 28px; font-weight: 900; color: var(--accent); }
+    .progress-steps { font-size: 11px; color: var(--muted); text-align: center; }
+
+    /* PAGE */
+    .page-eyebrow { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+    .page-title { font-size: 26px; font-weight: 900; color: var(--text); margin-bottom: 6px; line-height: 1.3; }
+    .page-subtitle { font-size: 14px; color: var(--muted); margin-bottom: 28px; line-height: 1.7; }
+
+    /* ALERT */
+    .alert-box {
+      display: flex; gap: 12px; align-items: flex-start;
+      background: #fffbeb; border: 1px solid #fde68a;
+      border-radius: 10px; padding: 16px 18px; margin-bottom: 32px;
+      font-size: 13px; color: #92400e; font-weight: 500; line-height: 1.7;
+    }
+    .alert-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+    /* SEC TITLE */
+    .sec-title {
+      font-size: 17px; font-weight: 800; color: var(--text);
+      margin-bottom: 16px; padding-bottom: 12px;
+      border-bottom: 2px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .sec-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: #fff; background: var(--accent); padding: 3px 8px; border-radius: 4px; }
+    .sec-badge.green { background: var(--green); }
+    .sec-badge.gold { background: var(--gold); }
+
+    /* GREED BLOCK */
+    .greed-block { background: #1e293b; border-radius: 12px; padding: 28px 24px; margin-bottom: 28px; }
+    .greed-block-title { font-size: 17px; font-weight: 800; color: #fff; margin-bottom: 10px; }
+    .greed-block-body { font-size: 14px; color: #94a3b8; line-height: 1.85; margin-bottom: 20px; }
+    .greed-stat-row { display: flex; align-items: center; gap: 20px; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; }
+    .greed-stat { flex: 1; }
+    .greed-stat-num { font-size: 28px; font-weight: 900; color: #fff; line-height: 1.1; margin-bottom: 4px; }
+    .greed-stat-num.blue { color: #60a5fa; }
+    .greed-stat-label { font-size: 11px; color: #64748b; line-height: 1.6; }
+    .greed-vs { font-size: 12px; color: #475569; font-weight: 700; flex-shrink: 0; }
+    .greed-note { background: rgba(37,99,235,0.15); border: 1px solid rgba(37,99,235,0.3); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #93c5fd; line-height: 1.8; }
+    .greed-note strong { color: #fff; }
+
+    /* STATEMENT IMAGES */
+    .stmt-img-wrap { margin-bottom: 16px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+    .stmt-img-wrap img { width: 100%; display: block; }
+    .stmt-img-caption { font-size: 11px; color: var(--muted); text-align: center; padding: 8px; background: var(--white); border-top: 1px solid var(--border); }
+
+    /* STATS CARD */
+    .stats-card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .stats-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .live-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--green); background: var(--green-dim); padding: 4px 10px; border-radius: 20px; }
+    .live-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+    .stats-period { font-size: 11px; color: var(--muted); }
+    .stats-subtitle { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .stat-item { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+    .stat-value { font-size: 24px; font-weight: 900; color: var(--text); line-height: 1.1; }
+    .stat-value.green { color: var(--green); }
+    .stat-value.blue { color: var(--accent); }
+    .stat-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+    /* CHART */
+    .chart-wrap { background: #0f172a; border-radius: 10px; padding: 20px; margin-bottom: 16px; text-align: center; }
+    .chart-wrap img { width: 100%; max-width: 100%; height: auto; border-radius: 4px; }
+    .chart-caption { font-size: 11px; color: #475569; margin-top: 10px; }
+
+    /* DETAIL TABLE */
+    .detail-table { background: var(--white); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
+    .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 20px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-key { color: var(--muted); }
+    .detail-val { font-weight: 700; color: var(--text); }
+    .detail-val.green { color: var(--green); }
+    .detail-val.blue { color: var(--accent); }
+    .pf-note { font-size: 11px; color: var(--green); background: var(--green-dim); border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px 12px; margin-top: 10px; line-height: 1.6; }
+
+    /* NOTICE / RISK */
+    .notice-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 16px 18px; font-size: 13px; color: #1e40af; line-height: 1.85; margin-bottom: 20px; }
+    .notice-box strong { color: #1d4ed8; font-weight: 700; }
+    .risk-box { background: #fff5f5; border: 1px solid #fecaca; border-radius: 10px; padding: 16px 18px; font-size: 12px; color: #991b1b; line-height: 1.85; margin-bottom: 28px; }
+
+    /* OP STRUCTURE */
+    .op-card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 22px 20px; margin-bottom: 16px; }
+    .op-title { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+    .op-desc { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+    .op-bar-wrap { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 8px; }
+    .op-bar-algo { background: var(--accent); width: 80%; }
+    .op-bar-manual { background: #e2e8f0; width: 20%; }
+    .op-bar-labels { display: flex; justify-content: space-between; font-size: 11px; }
+    .op-bar-label-algo { color: var(--accent); font-weight: 700; }
+    .op-bar-label-manual { color: var(--muted); }
+    .prejudice-card { background: #1e293b; border-radius: 12px; padding: 22px 20px; margin-bottom: 20px; margin-top: 20px; }
+    .prejudice-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: #60a5fa; text-transform: uppercase; margin-bottom: 12px; }
+    .prejudice-card p { font-size: 13px; color: #94a3b8; line-height: 1.85; margin-bottom: 12px; }
+    .prejudice-card p:last-child { margin-bottom: 0; }
+    .prejudice-card .highlight { color: #fff; font-weight: 700; }
+
+    /* CONDITION */
+    .condition-list { list-style: none; }
+    .condition-item { display: flex; gap: 14px; align-items: flex-start; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+    .condition-item:last-child { border-bottom: none; }
+    .condition-num { font-size: 11px; font-weight: 800; color: var(--accent); background: var(--accent-dim); border: 1px solid var(--accent-border); width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+    .condition-text { font-size: 14px; color: var(--text); font-weight: 600; line-height: 1.5; }
+    .condition-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+    /* FLOW */
+    .flow-list { list-style: none; padding: 0; }
+    .flow-item { position: relative; padding: 0 0 28px 44px; }
+    .flow-item:last-child { padding-bottom: 0; }
+    .flow-num { position: absolute; left: 0; top: 0; width: 30px; height: 30px; background: var(--accent); border-radius: 50%; font-size: 12px; font-weight: 800; color: #fff; display: flex; align-items: center; justify-content: center; }
+    .flow-line { position: absolute; left: 14px; top: 32px; width: 2px; height: calc(100% - 32px); background: var(--border); }
+    .flow-item:last-child .flow-line { display: none; }
+    .flow-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; padding-top: 4px; }
+    .flow-desc { font-size: 13px; color: var(--muted); line-height: 1.7; }
+
+    /* FAQ */
+    .faq-item { border-bottom: 1px solid var(--border); padding: 18px 20px; }
+    .faq-item:last-child { border-bottom: none; }
+    .faq-q { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 8px; display: flex; gap: 8px; align-items: flex-start; }
+    .faq-q-mark { font-size: 12px; font-weight: 800; color: var(--accent); background: var(--accent-dim); padding: 1px 6px; border-radius: 4px; flex-shrink: 0; margin-top: 1px; }
+    .faq-a { font-size: 13px; color: var(--muted); line-height: 1.85; padding-left: 26px; }
+
+    /* CTA */
+    .cta-card { background: var(--accent); border-radius: 14px; padding: 32px 28px; text-align: center; margin-bottom: 40px; }
+    .cta-card h3 { font-size: 20px; font-weight: 900; color: #fff; margin-bottom: 8px; }
+    .cta-card p { font-size: 13px; color: rgba(255,255,255,0.8); margin-bottom: 24px; }
+    .cta-btns { display: flex; flex-direction: column; gap: 10px; max-width: 280px; margin: 0 auto; }
+    .btn-white { display: block; background: #fff; color: var(--accent); font-size: 14px; font-weight: 800; padding: 14px 20px; border-radius: 10px; text-decoration: none; text-align: center; }
+    .btn-ghost-white { display: block; background: transparent; color: rgba(255,255,255,0.8); font-size: 13px; padding: 12px 20px; border-radius: 10px; text-decoration: none; text-align: center; border: 1px solid rgba(255,255,255,0.3); }
+
+    .section-gap { margin-bottom: 48px; }
+
+    @media (max-width: 900px) {
+      .sidebar { display: none; }
+      .main-wrap { margin-left: 0; }
+      .toc-sidebar { display: none; }
+      .content-main { padding: 24px 20px 60px; }
+    }
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .greed-stat-row { flex-direction: column; gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-title">서태준의<br>알고리즘 기반 전략 운용</div>
+    <div class="sidebar-logo-sub">@seotaejun-trd</div>
+  </div>
+  <div class="sidebar-section-label">안내 목차</div>
+  <nav class="sidebar-nav">
+    <a href="#performance" class="sidebar-item active">
+      <span class="sidebar-num">01</span>
+      <span class="sidebar-item-text">실계좌 운용 결과</span>
+    </a>
+    <a href="#structure" class="sidebar-item">
+      <span class="sidebar-num">02</span>
+      <span class="sidebar-item-text">운용 구조 안내</span>
+    </a>
+    <a href="#condition" class="sidebar-item">
+      <span class="sidebar-num">03</span>
+      <span class="sidebar-item-text">체험 조건</span>
+    </a>
+    <a href="#howto" class="sidebar-item">
+      <span class="sidebar-num">04</span>
+      <span class="sidebar-item-text">신청 절차</span>
+    </a>
+    <a href="#faq" class="sidebar-item">
+      <span class="sidebar-num">05</span>
+      <span class="sidebar-item-text">자주 묻는 질문</span>
+    </a>
+  </nav>
+  <div class="sidebar-bottom">
+    <div class="sidebar-help">
+      <strong>도움이 필요하신가요?</strong>
+      문의사항이 있다면 아래 개인 메세지로 언제든지 연락주세요.
+    </div>
+    <a href="https://t.me/seotaejun_trd" class="sidebar-btn">● 개인 메세지 1:1 문의<br><span style="font-size:10px;opacity:0.8;">(@seotaejun_trd)</span></a>
+    <a href="https://www.youtube.com/@seotaejun-trd" class="sidebar-btn-ghost">▶ 유튜브 채널</a>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-wrap">
+  <div class="top-bar">
+    <div class="top-bar-breadcrumb">서태준의 매매일지 &rsaquo; <strong>알고리즘 기반 전략 운용 체험</strong></div>
+    <div class="progress-wrap">
+      <span class="progress-label">페이지 진행률</span>
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill"></div></div>
+    </div>
+  </div>
+
+  <div class="content-area">
+    <main class="content-main">
+
+      <!-- HERO -->
+      <div class="page-eyebrow">Algorithm-Based Strategy</div>
+      <h1 class="page-title">수학과 확률, 통계로 설계했습니다.</h1>
+      <p class="page-subtitle">
+        10년간 개발자로 일하며 프로그램을 설계 및 실계좌로 백테스팅 검증 완료했습니다.<br>
+        감이 아닌 통계입니다. 직관이 아닌 확률입니다.
+      </p>
+
+      <div class="alert-box">
+        <span class="alert-icon">📌</span>
+        <span>수학적·통계적·확률적 분석을 바탕으로 직접 개발한 알고리즘 프로그램입니다.<br>실계좌 운용 데이터로 직접 검증된 전략을 함께 체험해보세요.</span>
+      </div>
+
+      <!-- 욕심 경고 -->
+      <div class="greed-block">
+        <div class="greed-block-title">인간의 욕심은 끝이 없습니다.</div>
+        <div class="greed-block-body">
+          하루 30% 수익을 내도, 다음 날엔 40%, 60%를 목표로 삼습니다.<br>
+          그렇게 무너집니다. 감정이 아닌 시스템이 필요한 이유입니다.
+        </div>
+        <div class="greed-stat-row">
+          <div class="greed-stat">
+            <div class="greed-stat-num">연 20%</div>
+            <div class="greed-stat-label">월스트리트 펀드매니저<br>연평균 수익률 상한선</div>
+          </div>
+          <div class="greed-vs">vs</div>
+          <div class="greed-stat">
+            <div class="greed-stat-num blue">+115.6%</div>
+            <div class="greed-stat-label">서태준 실계좌<br>86일 알고리즘 운용 결과</div>
+          </div>
+        </div>
+        <div class="greed-note">
+          세계 최고의 펀드매니저들도 연 20%를 넘기기 어렵습니다.<br>
+          저는 2달 반 만에 원금 대비 <strong>+115.6%를 실계좌로 증명</strong>했습니다.<br>
+          시스템이 감정을 이깁니다.
+        </div>
+      </div>
+
+      <!-- 01. 실계좌 운용 결과 -->
+      <div id="performance" class="section-gap">
+        <div class="sec-title">
+          <span class="sec-badge green">LIVE</span>
+          실계좌 운용 결과
+        </div>
+
+        <!-- Statement 카드 이미지 1 -->
+        <div class="stmt-img-wrap">
+          <img src="statement_card1.png" alt="실계좌 Statement 계좌 정보 및 운용 지표" />
+          <div class="stmt-img-caption">실계좌 운용 Statement · 계좌번호 1060 ●●●● 64 · taejun Seo · 2026.04.01 ~ 2026.06.25</div>
+        </div>
+
+        <!-- Statement 카드 이미지 2 -->
+        <div class="stmt-img-wrap">
+          <img src="statement_card2.png" alt="실계좌 운용 성과 요약" />
+          <div class="stmt-img-caption">운용 성과 요약 · +115.6% · 3,509건 · Profit Factor 1.41</div>
+        </div>
+
+        <div class="stats-card">
+          <div class="stats-card-header">
+            <span class="live-badge"><span class="live-dot"></span>LIVE ACCOUNT</span>
+            <span class="stats-period">2026.04.01 ~ 2026.06.25</span>
+          </div>
+          <div class="stats-subtitle">실계좌 운용 결과 · 직접 검증 완료</div>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-label">시작 시드</div>
+              <div class="stat-value">$400,000</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">현재 잔고</div>
+              <div class="stat-value green">$862,441</div>
+              <div class="stat-sub">+$462,441 수익</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">총 수익률</div>
+              <div class="stat-value blue">+115.6%</div>
+              <div class="stat-sub">약 86일 운용</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">최대 낙폭 (MDD)</div>
+              <div class="stat-value">11.92%</div>
+              <div class="stat-sub">리스크 통제 범위 내</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-wrap">
+          <img src="DetailedStatement.gif" alt="운용 잔고 그래프 2026.04.01~2026.06.25" />
+          <div class="chart-caption">잔고 추이 그래프 · 계좌번호 1060 ●●●● 64 · taejun Seo</div>
+        </div>
+
+        <div class="detail-table">
+          <div class="detail-row"><span class="detail-key">운용 기간</span><span class="detail-val">2026.04.01 ~ 2026.06.25 (약 86일)</span></div>
+          <div class="detail-row"><span class="detail-key">총 거래 횟수</span><span class="detail-val">3,509건</span></div>
+          <div class="detail-row"><span class="detail-key">Profit Factor</span><span class="detail-val blue">1.41</span></div>
+          <div class="detail-row"><span class="detail-key">Maximal Drawdown</span><span class="detail-val">11.92%</span></div>
+          <div class="detail-row"><span class="detail-key">일일 프로그램 구동 시간</span><span class="detail-val blue">1~2시간</span></div>
+        </div>
+
+        <div class="pf-note">
+          📊 Profit Factor 해석 기준 — PF &gt; 1.0: 손실보다 이익이 더 크므로 전략이 수익성이 있다고 봅니다.
+        </div>
+
+        <div class="notice-box" style="margin-top:16px;">
+          <strong>MDD 관리 방식</strong><br>
+          하루 1~2시간만 프로그램을 구동합니다.<br>
+          변동성이 큰 구간, 위험한 추세 구간은 가동하지 않습니다.<br>
+          이 방식으로 MDD를 11.92% 이내로 통제하며 수익을 쌓아왔습니다.<br>
+          <strong>24시간 자동화가 목표가 아닙니다. 리스크 회피가 먼저입니다.</strong>
+        </div>
+
+        <div class="risk-box">
+          ⚠️ 투자 위험 고지 — 위 결과는 실제 계좌 운용 데이터이나, 과거 수익이 미래 수익을 보장하지 않습니다.
+          모든 투자에는 원금 손실 위험이 있으며, 시장 환경·세팅값·운용 방식에 따라 결과는 달라질 수 있습니다.
+          본 자료는 투자 권유가 아니며, 모든 투자 판단과 책임은 본인에게 있습니다.
+        </div>
+      </div>
+
+      <!-- 02. 운용 구조 -->
+      <div id="structure" class="section-gap">
+        <div class="sec-title">
+          <span class="sec-badge">STRUCTURE</span>
+          운용 구조 안내
+        </div>
+
+        <div class="op-card">
+          <div class="op-title">알고리즘 80% · 손매매 20%</div>
+          <div class="op-desc">전체 수익의 80%는 프로그램이 만들어냅니다.</div>
+          <div class="op-bar-wrap">
+            <div class="op-bar-algo"></div>
+            <div class="op-bar-manual"></div>
+          </div>
+          <div class="op-bar-labels">
+            <span class="op-bar-label-algo">알고리즘 기반 전략 운용 · 80%</span>
+            <span class="op-bar-label-manual">손매매 · 20%</span>
+          </div>
+        </div>
+
+        <p style="font-size:14px; color:var(--muted); line-height:1.85; margin-bottom:12px;">
+          수학적, 통계적, 확률적 분석을 바탕으로 직접 코드를 개발했습니다.<br>
+          감으로 버티는 트레이딩이 아닙니다. 프로그램이 진입 판단, 분할 진입, 청산까지 처리합니다.<br>
+          저는 시장 환경을 보고, 가동 여부를 판단하고, MDD 구간을 회피합니다.
+        </p>
+
+        <div class="prejudice-card">
+          <div class="prejudice-label">한국에서만 유독 부정적인 시각</div>
+          <p>이미 해외에서는 퀀트 트레이더들이 시스템 트레이딩을 당연하게 활용합니다.<br>
+          Renaissance Technologies, Two Sigma, Citadel — 세계 최상위 헤지펀드들이 알고리즘으로 시장을 운용합니다.</p>
+          <p>"프로그램이 무슨 매매를 대신 하냐"는 말은, 이미 실계좌 백테스팅 자료로 검증 되었습니다.<br>
+          <span class="highlight">저는 실계좌로 증명했습니다.</span></p>
+        </div>
+      </div>
+
+      <!-- 03. 체험 조건 -->
+      <div id="condition" class="section-gap">
+        <div class="sec-title">
+          <span class="sec-badge gold">CONDITIONS</span>
+          체험 조건
+        </div>
+        <p style="font-size:14px; color:var(--muted); line-height:1.85; margin-bottom:20px;">
+          일방적으로 드리지 않습니다. 운용하면서 피드백을 주셔야 합니다.<br>
+          여러분의 피드백이 알고리즘을 더 정교하게 만드는 데이터가 됩니다.
+        </p>
+        <div class="detail-table">
+          <ul class="condition-list">
+            <li class="condition-item">
+              <span class="condition-num">1</span>
+              <div>
+                <div class="condition-text">유튜브 영상 아무거나 1개에 30자 이상 댓글</div>
+                <div class="condition-sub">매매 관점이나 질문이면 더 좋습니다. 단순 인사도 괜찮습니다.</div>
+              </div>
+            </li>
+            <li class="condition-item" style="border-bottom:none;">
+              <span class="condition-num">2</span>
+              <div>
+                <div class="condition-text">댓글 캡처 1장 → 1:1 메신저 링크로 DM 전송</div>
+                <div class="condition-sub">확인 후 운용 가이드와 프로그램 파일을 보내드립니다.</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 04. 신청 절차 -->
+      <div id="howto" class="section-gap">
+        <div class="sec-title">
+          <span class="sec-badge">HOW TO APPLY</span>
+          신청 절차
+        </div>
+        <ul class="flow-list">
+          <li class="flow-item">
+            <div class="flow-num">1</div>
+            <div class="flow-line"></div>
+            <div class="flow-title">댓글 작성 + 캡처 준비</div>
+            <div class="flow-desc">유튜브 채널 영상 중 아무 거나 1개에 30자 이상 댓글을 남기고 캡처합니다.</div>
+          </li>
+          <li class="flow-item">
+            <div class="flow-num">2</div>
+            <div class="flow-line"></div>
+            <div class="flow-title">1:1 개인 메세지로 신청</div>
+            <div class="flow-desc">@seotaejun_trd 로 캡처 1장과 함께 신청 메시지를 보냅니다.</div>
+          </li>
+          <li class="flow-item">
+            <div class="flow-num">3</div>
+            <div class="flow-line"></div>
+            <div class="flow-title">운용 가이드 + 프로그램 수령</div>
+            <div class="flow-desc">확인 후 운용 가이드, 권장 세팅값, 프로그램 파일을 1:1로 안내드립니다.</div>
+          </li>
+        </ul>
+      </div>
+
+      <!-- 05. FAQ -->
+      <div id="faq" class="section-gap">
+        <div class="sec-title">
+          <span class="sec-badge">FAQ</span>
+          자주 묻는 질문
+        </div>
+        <div class="detail-table">
+          <div class="faq-item">
+            <div class="faq-q"><span class="faq-q-mark">Q</span>처음인데 세팅이 어렵지 않나요?</div>
+            <div class="faq-a">세팅 자체는 단순합니다. 가이드 영상과 함께 1:1로 안내드립니다.<br>
+            모바일에서는 잔고 확인 가능하지만, 프로그램 구동은 반드시 Windows PC에서만 됩니다.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q"><span class="faq-q-mark">Q</span>PC를 24시간 켜놔야 하나요?</div>
+            <div class="faq-a">아닙니다. 오히려 24시간 구동을 권장하지 않습니다.<br>
+            하루 1~2시간, 시장 환경에 맞춰 가동하는 방식이 핵심입니다.<br>
+            MDD 구간을 회피하는 것도 이 운용 방식에서 나옵니다.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q"><span class="faq-q-mark">Q</span>저사양 노트북도 가능한가요?</div>
+            <div class="faq-a">가능합니다. 프로그램 자체가 가벼워 일반 노트북 사양으로 충분합니다.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q"><span class="faq-q-mark">Q</span>왜 무료로 제공하나요?</div>
+            <div class="faq-a">
+              다양한 시장 환경에서 데이터가 축적될수록 알고리즘은 더욱 정교해집니다.<br>
+              여러분의 피드백 자체가 저에게는 큰 자산입니다.<br><br>
+              현재는 테스트 및 검증 목적으로 무료 공개하고 있으며,<br>
+              향후 운영 정책에 따라 유료 서비스로 전환될 수 있습니다.
+            </div>
+          </div>
+          <div class="faq-item" style="border-bottom:none;">
+            <div class="faq-q"><span class="faq-q-mark">Q</span>시드는 얼마부터 가능한가요?</div>
+            <div class="faq-a">시드 규모, 레버리지, 세팅값에 따라 달라집니다.<br>
+            시드가 작을수록 대응 가능한 레인지가 좁아지고 리스크가 커집니다.<br>
+            구체적인 내용은 1:1 안내 때 말씀드립니다.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="cta-card">
+        <h3>알고리즘 기반 전략 운용 신청 방법</h3>
+        <p>아래 링크 클릭 후 신청해주세요.</p>
+        <div class="cta-btns">
+          <a href="https://t.me/seotaejun_trd" class="btn-white">1:1 개인 메세지로 신청 →</a>
+          <a href="https://www.youtube.com/@seotaejun-trd" class="btn-ghost-white">유튜브 채널 보기</a>
+        </div>
+      </div>
+
+      <div style="text-align:center; font-size:12px; color:#94a3b8; padding-bottom:20px;">
+        <a href="https://seotaejun-trd.github.io/seotaejun-trd/" style="color:#64748b; text-decoration:none;">← 서태준의 매매일지 홈으로</a><br><br>
+        © 2026 서태준의 매매일지 · @seotaejun-trd<br>
+        본 콘텐츠는 투자 자문이 아닌 프로그램 공유 목적입니다.
+      </div>
+
+    </main>
+
+    <!-- TOC -->
+    <aside class="toc-sidebar">
+      <div class="toc-card">
+        <div class="toc-title">이 페이지 목차</div>
+        <a href="#performance" class="toc-link active">실계좌 운용 결과</a>
+        <a href="#structure" class="toc-link">운용 구조 안내</a>
+        <a href="#condition" class="toc-link">체험 조건</a>
+        <a href="#howto" class="toc-link">신청 절차</a>
+        <a href="#faq" class="toc-link">자주 묻는 질문</a>
+      </div>
+      <div class="toc-card">
+        <div class="progress-card-title">완료 현황</div>
+        <div class="progress-circle-wrap">
+          <div class="progress-pct" id="tocProgress">0%</div>
+          <div class="progress-steps" id="tocSteps">스크롤하며 확인해보세요</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+  window.addEventListener('scroll', () => {
+    const total = document.documentElement.scrollHeight - window.innerHeight;
+    const pct = Math.round((window.scrollY / total) * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('tocProgress').textContent = pct + '%';
+    document.getElementById('tocSteps').textContent = pct < 100 ? '페이지를 내려서 확인하세요' : '✓ 모두 확인하셨습니다';
+    const sections = ['performance','structure','condition','howto','faq'];
+    let current = '';
+    sections.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && window.scrollY >= el.offsetTop - 100) current = id;
+    });
+    document.querySelectorAll('.toc-link').forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#'+current));
+    document.querySelectorAll('.sidebar-item').forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#'+current));
+  });
+</script>
+</body>
+</html>
